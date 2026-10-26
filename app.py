@@ -1,6 +1,7 @@
 """
 Factory Reallocation & Shipping Optimization Recommendation System
 Nassau Candy Distributor - Intelligent Decision Support System
+Production Streamlit Application
 """
 import streamlit as st
 import pandas as pd
@@ -8,7 +9,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-from src.config import FACTORIES, PRODUCT_FACTORY_MAP, FREIGHT_COST_PER_ORDER_MILE, CO2_KG_PER_MILE_TRUCK
+from src.config import FACTORIES, PRODUCT_FACTORY_MAP, PRODUCT_DIVISIONS, FREIGHT_COST_PER_ORDER_MILE, CO2_KG_PER_MILE_TRUCK
 from src.data_pipeline import load_and_preprocess_data, haversine_distance
 from src.train_models import load_best_model, load_metrics_report
 from src.clustering import run_route_clustering
@@ -17,60 +18,222 @@ from src.optimizer import rank_reassignments, generate_optimal_portfolio_reassig
 
 # Page Configuration
 st.set_page_config(
-    page_title="Nassau Candy | Factory Reallocation & Optimization System",
+    page_title="Nassau Candy | Logistics & Factory Optimizer",
     page_icon="🍬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling
+# Custom Enterprise Design System
 st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 <style>
-    .main-header {
-        font-size: 2.2rem;
+    /* Global Typography */
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Main Container Padding */
+    .block-container {
+        padding-top: 1.8rem;
+        padding-bottom: 3rem;
+        max-width: 1400px;
+    }
+
+    /* Hero Header Banner */
+    .hero-banner {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F284E 100%);
+        border-radius: 16px;
+        padding: 28px 32px;
+        margin-bottom: 24px;
+        color: #FFFFFF;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25), 0 8px 10px -6px rgba(15, 23, 42, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-banner::after {
+        content: '';
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, rgba(0,0,0,0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(59, 130, 246, 0.18);
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        color: #93C5FD;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        margin-bottom: 12px;
+    }
+    .hero-title {
+        font-size: 2.1rem;
         font-weight: 800;
-        color: #1A365D;
-        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+        color: #F8FAFC;
+        margin-bottom: 8px;
+        line-height: 1.2;
     }
-    .sub-header {
-        font-size: 1.05rem;
-        color: #4A5568;
-        margin-bottom: 1.5rem;
+    .hero-subtitle {
+        font-size: 0.98rem;
+        color: #94A3B8;
+        max-width: 850px;
+        line-height: 1.5;
+        margin-bottom: 0px;
     }
+
+    /* KPI Cards */
     .kpi-card {
-        background: linear-gradient(135deg, #F8FAFC 0%, #EDF2F7 100%);
+        background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 10px;
-        padding: 16px 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03), 0 1px 2px rgba(0,0,0,0.02);
+        transition: all 0.2s ease-in-out;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.07), 0 4px 6px -2px rgba(0,0,0,0.04);
+        border-color: #CBD5E1;
+    }
+    .kpi-top-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    .kpi-lead .kpi-top-bar { background: linear-gradient(90deg, #3B82F6, #1D4ED8); }
+    .kpi-dist .kpi-top-bar { background: linear-gradient(90deg, #10B981, #047857); }
+    .kpi-savings .kpi-top-bar { background: linear-gradient(90deg, #8B5CF6, #6D28D9); }
+    .kpi-conf .kpi-top-bar { background: linear-gradient(90deg, #F59E0B, #D97706); }
+    .kpi-cov .kpi-top-bar { background: linear-gradient(90deg, #EC4899, #BE185D); }
+
+    .kpi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
     }
     .kpi-title {
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 700;
-        color: #718096;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .kpi-icon {
+        font-size: 1.15rem;
+    }
+    .kpi-value {
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: #0F172A;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+        margin-bottom: 6px;
+    }
+    .kpi-footer {
+        font-size: 0.78rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .kpi-badge-green { color: #059669; }
+    .kpi-badge-blue { color: #2563EB; }
+    .kpi-badge-purple { color: #7C3AED; }
+    .kpi-badge-amber { color: #D97706; }
+
+    /* Modern Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background: #F1F5F9;
+        padding: 6px;
+        border-radius: 12px;
+        border: 1px solid #E2E8F0;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 42px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        padding: 0 16px;
+        border-radius: 8px;
+        color: #475569;
+        transition: all 0.15s ease;
+    }
+    .stTabs [aria-selected="true"] {
+        background: #FFFFFF !important;
+        color: #0F172A !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+        font-weight: 700 !important;
+    }
+
+    /* Content Cards */
+    .content-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        margin-bottom: 16px;
+    }
+
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #F8FAFC;
+        border-right: 1px solid #E2E8F0;
+    }
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #E2E8F0;
+        margin-bottom: 16px;
+    }
+    .sidebar-brand {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #0F172A;
+        line-height: 1.2;
+    }
+    .sidebar-subbrand {
+        font-size: 0.75rem;
+        color: #64748B;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
-    .kpi-value {
-        font-size: 1.8rem;
-        font-weight: 800;
-        color: #2B6CB0;
-        margin-top: 4px;
-    }
-    .kpi-subtext {
+    .facility-pill {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
         font-size: 0.8rem;
-        color: #38A169;
-        font-weight: 600;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 48px;
-        font-weight: 600;
-        font-size: 0.95rem;
-        padding: 0 16px;
-        border-radius: 6px 6px 0 0;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -92,6 +255,21 @@ def get_cached_clustering(df):
 def get_cached_simulation(df):
     return run_portfolio_simulation(df)
 
+# Helper function to style Plotly figures consistently
+def style_figure(fig, height=360):
+    fig.update_layout(
+        font=dict(family="Plus Jakarta Sans, sans-serif", size=12, color="#334155"),
+        title=dict(font=dict(size=14, color="#0F172A", family="Plus Jakarta Sans, sans-serif")),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=height,
+        margin=dict(l=20, r=20, t=45, b=25),
+        xaxis=dict(showgrid=True, gridcolor="#F1F5F9", linecolor="#CBD5E1", zeroline=False),
+        yaxis=dict(showgrid=True, gridcolor="#F1F5F9", linecolor="#CBD5E1", zeroline=False),
+        legend=dict(bgcolor="rgba(255,255,255,0.85)", bordercolor="#E2E8F0", borderwidth=1)
+    )
+    return fig
+
 # Load data and resources
 df_raw = get_cached_data()
 model, best_model_name = get_cached_model()
@@ -99,47 +277,83 @@ metrics_report = load_metrics_report()
 cluster_res = get_cached_clustering(df_raw)
 sim_df = get_cached_simulation(df_raw)
 
-# Sidebar Controls
-st.sidebar.image("https://img.icons8.com/color/96/candy.png", width=64)
-st.sidebar.title("Decision Controls")
-st.sidebar.markdown("Configure scenario constraints and optimization parameters:")
+# Sidebar Design
+with st.sidebar:
+    st.markdown("""
+    <div class="sidebar-header">
+        <div style="font-size: 2.2rem;">🍬</div>
+        <div>
+            <div class="sidebar-brand">Nassau Candy</div>
+            <div class="sidebar-subbrand">Decision Intelligence v2.5</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Filter: Product
-all_products = sorted(df_raw['Product Name'].unique().tolist())
-selected_product = st.sidebar.selectbox("🎯 Target Product", all_products, index=0)
+    st.markdown("##### 🎛️ Optimization Controls")
 
-# Filter: Region
-all_regions = ["All Regions"] + sorted(df_raw['Region'].unique().tolist())
-selected_region = st.sidebar.selectbox("📍 Destination Region", all_regions, index=0)
+    # Optimization Objective Presets
+    if 'priority_val' not in st.session_state:
+        st.session_state.priority_val = 0.5
 
-# Filter: Ship Mode
-all_ship_modes = ["All Ship Modes"] + sorted(df_raw['Ship Mode'].unique().tolist())
-selected_ship_mode = st.sidebar.selectbox("🚚 Ship Mode Filter", all_ship_modes, index=0)
+    preset_col1, preset_col2, preset_col3 = st.columns(3)
+    with preset_col1:
+        if st.button("💰 Profit", use_container_width=True, help="Prioritize freight cost reduction"):
+            st.session_state.priority_val = 0.2
+    with preset_col2:
+        if st.button("⚖️ Balanced", use_container_width=True, help="Balanced speed and profit"):
+            st.session_state.priority_val = 0.5
+    with preset_col3:
+        if st.button("⚡ Speed", use_container_width=True, help="Prioritize fastest delivery"):
+            st.session_state.priority_val = 0.8
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("⚖️ Optimization Priority")
-priority_slider = st.sidebar.slider(
-    "Speed vs. Profit Weighting",
-    min_value=0.0,
-    max_value=1.0,
-    value=0.5,
-    step=0.05,
-    help="0.0 = 100% Profit Focus | 0.5 = Balanced | 1.0 = 100% Delivery Speed Focus"
-)
-speed_weight = priority_slider
-profit_weight = round(1.0 - priority_slider, 2)
-st.sidebar.caption(f"**Speed Weight:** {int(speed_weight*100)}% | **Profit Weight:** {int(profit_weight*100)}%")
+    priority_slider = st.slider(
+        "Priority: Speed vs. Profit Weight",
+        min_value=0.0,
+        max_value=1.0,
+        value=st.session_state.priority_val,
+        step=0.05,
+        help="0.0 = 100% Profit Focus | 0.5 = Balanced | 1.0 = 100% Delivery Speed Focus"
+    )
+    speed_weight = priority_slider
+    profit_weight = round(1.0 - priority_slider, 2)
+    st.caption(f"⚡ **Speed:** {int(speed_weight*100)}% &nbsp;|&nbsp; 💰 **Profit:** {int(profit_weight*100)}%")
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 🏭 Active Production Facilities")
-for fac, info in FACTORIES.items():
-    st.sidebar.markdown(f"• **{fac}** ({info['city']}, {info['state']})")
+    st.markdown("---")
+    st.markdown("##### 🔍 Scenario Filters")
 
-# Header Section
-st.markdown('<div class="main-header">Factory Reallocation & Shipping Optimization Recommendation System</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Decision Intelligence & Predictive Simulation for Nassau Candy Distributor Logistics</div>', unsafe_allow_html=True)
+    all_products = sorted(df_raw['Product Name'].unique().tolist())
+    selected_product = st.selectbox("Select Target Product", all_products, index=0)
 
-# Compute Global KPIs with current priority weights
+    all_regions = ["All Regions"] + sorted(df_raw['Region'].unique().tolist())
+    selected_region = st.selectbox("Destination Region", all_regions, index=0)
+
+    all_ship_modes = ["All Ship Modes"] + sorted(df_raw['Ship Mode'].unique().tolist())
+    selected_ship_mode = st.selectbox("Ship Mode Filter", all_ship_modes, index=0)
+
+    st.markdown("---")
+    st.markdown("##### 🏭 Manufacturing Network")
+    for fac, info in FACTORIES.items():
+        st.markdown(f"""
+        <div class="facility-pill">
+            <span><strong style="color: {info['color']};">●</strong> {fac}</span>
+            <span style="color: #64748B;">{info['city']}, {info['state'][:2]}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Main Hero Header Banner
+st.markdown("""
+<div class="hero-banner">
+    <div class="hero-badge">
+        <span>●</span> Live Optimization Engine &nbsp;•&nbsp; 75 Evaluated Configurations
+    </div>
+    <div class="hero-title">Factory Reallocation & Logistics Optimizer</div>
+    <div class="hero-subtitle">
+        Prescriptive decision intelligence simulating nationwide haulage, machine-learning lead times, Scope 3 ESG emissions, and Pareto-optimal SKU reassignments.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Global Macro KPIs
 opt_result = generate_optimal_portfolio_reassignment(sim_df, speed_weight=speed_weight, profit_weight=profit_weight)
 kpis = opt_result['kpis']
 recs_df = opt_result['portfolio_recommendations']
@@ -149,46 +363,76 @@ col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Lead Time Reduction</div>
+    <div class="kpi-card kpi-lead">
+        <div class="kpi-top-bar"></div>
+        <div class="kpi-header">
+            <span class="kpi-title">Lead Time Delta</span>
+            <span class="kpi-icon">⏱️</span>
+        </div>
         <div class="kpi-value">{abs(kpis['lead_time_reduction_pct']):.2f}%</div>
-        <div class="kpi-subtext">Operational Gain</div>
+        <div class="kpi-footer kpi-badge-blue">
+            <span>↑</span> Operational Velocity Gain
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Distance Reduction</div>
+    <div class="kpi-card kpi-dist">
+        <div class="kpi-top-bar"></div>
+        <div class="kpi-header">
+            <span class="kpi-title">Distance Saved</span>
+            <span class="kpi-icon">📉</span>
+        </div>
         <div class="kpi-value">{kpis['distance_reduction_pct']:.1f}%</div>
-        <div class="kpi-subtext">{kpis['co2_saved_kg']:.0f} kg CO2 Avoided</div>
+        <div class="kpi-footer kpi-badge-green">
+            <span>🌱</span> {kpis['co2_saved_kg']:.0f} kg CO2 Avoided
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
     st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Freight Savings</div>
+    <div class="kpi-card kpi-savings">
+        <div class="kpi-top-bar"></div>
+        <div class="kpi-header">
+            <span class="kpi-title">Freight Savings</span>
+            <span class="kpi-icon">💰</span>
+        </div>
         <div class="kpi-value">${kpis['total_freight_savings_usd']:,.0f}</div>
-        <div class="kpi-subtext">+{kpis['profit_impact_stability_pct']:.1f}% Margin Impact</div>
+        <div class="kpi-footer kpi-badge-purple">
+            <span>+</span>{kpis['profit_impact_stability_pct']:.1f}% Margin Expansion
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
 with col4:
     st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Confidence Score</div>
+    <div class="kpi-card kpi-conf">
+        <div class="kpi-top-bar"></div>
+        <div class="kpi-header">
+            <span class="kpi-title">Scenario Confidence</span>
+            <span class="kpi-icon">🎯</span>
+        </div>
         <div class="kpi-value">{kpis['scenario_confidence_score_pct']:.1f}%</div>
-        <div class="kpi-subtext">Statistical Reliability</div>
+        <div class="kpi-footer kpi-badge-amber">
+            <span>★</span> Champion GBR Model
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
 with col5:
     st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-title">Coverage</div>
+    <div class="kpi-card kpi-cov">
+        <div class="kpi-top-bar"></div>
+        <div class="kpi-header">
+            <span class="kpi-title">SKU Coverage</span>
+            <span class="kpi-icon">📦</span>
+        </div>
         <div class="kpi-value">{kpis['recommendation_coverage_pct']:.0f}%</div>
-        <div class="kpi-subtext">{kpis['reassigned_skus_count']} / {kpis['total_skus_count']} SKUs Optimized</div>
+        <div class="kpi-footer kpi-badge-blue">
+            <span>✓</span> {kpis['reassigned_skus_count']} of {kpis['total_skus_count']} SKUs Optimized
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -196,23 +440,22 @@ st.write("")
 
 # Main Tabs Navigation
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🏭 Factory Optimization Simulator",
-    "🔮 What-If Scenario Analysis",
-    "📋 Recommendation Dashboard",
-    "⚠️ Risk & Impact Panel",
-    "🗺️ Network & Route Clustering",
-    "🧠 Predictive Model Evaluation"
+    "🏭 Factory Simulator",
+    "🔮 What-If Sandbox",
+    "📋 Recommendations",
+    "⚠️ Risk & Hazards",
+    "🗺️ Network & Clusters",
+    "🧠 Model Evaluation"
 ])
 
 # ==============================================================================
-# TAB 1: FACTORY OPTIMIZATION SIMULATOR
+# TAB 1: FACTORY SIMULATOR
 # ==============================================================================
 with tab1:
-    st.subheader(f"Factory Performance Simulator: {selected_product}")
+    st.markdown(f"### Factory Performance Simulator: **{selected_product}**")
     current_assigned = PRODUCT_FACTORY_MAP.get(selected_product, "Unknown")
-    st.info(f"**Current Baseline Assignment:** Produces at **{current_assigned}** ({FACTORIES[current_assigned]['city']}, {FACTORIES[current_assigned]['state']})")
+    st.info(f"📍 **Current Baseline Origin:** **{current_assigned}** ({FACTORIES[current_assigned]['city']}, {FACTORIES[current_assigned]['state']}) &nbsp;•&nbsp; Specialty: *{FACTORIES[current_assigned]['specialty']}*")
 
-    # Filter data for selected product and sidebar filters
     sub_df = df_raw[df_raw['Product Name'] == selected_product].copy()
     if selected_region != "All Regions":
         sub_df = sub_df[sub_df['Region'] == selected_region]
@@ -220,9 +463,8 @@ with tab1:
         sub_df = sub_df[sub_df['Ship Mode'] == selected_ship_mode]
 
     if len(sub_df) == 0:
-        st.warning("No historical orders found for the selected filter combination.")
+        st.warning("No historical order records match the active filter criteria.")
     else:
-        # Compare across all 5 candidate factories
         sim_rows = []
         for fac_name in FACTORIES.keys():
             res = simulate_product_reassignment(sub_df, selected_product, fac_name, model=model)
@@ -231,7 +473,6 @@ with tab1:
         
         sim_product_df = pd.DataFrame(sim_rows)
         
-        # Display Comparative Cards
         c1, c2 = st.columns([3, 2])
         
         with c1:
@@ -243,10 +484,10 @@ with tab1:
             renamed_cols = {
                 'candidate_factory': 'Candidate Factory',
                 'is_current': 'Current Baseline',
-                'sim_avg_dist_miles': 'Avg Distance (mi)',
-                'dist_reduction_pct': 'Distance Reduction (%)',
+                'sim_avg_dist_miles': 'Avg Dist (mi)',
+                'dist_reduction_pct': 'Distance Red. (%)',
                 'sim_lead_time_days': 'Lead Time (Days)',
-                'lead_time_reduction_pct': 'Lead Time Reduction (%)',
+                'lead_time_reduction_pct': 'Lead Time Red. (%)',
                 'freight_savings': 'Freight Savings ($)',
                 'risk_level': 'Risk Rating'
             }
@@ -254,24 +495,29 @@ with tab1:
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
         with c2:
-            st.markdown("#### Distance Comparison by Factory")
+            st.markdown("#### Average Shipping Distance Comparison")
             fig_bar = px.bar(
                 sim_product_df,
                 x='candidate_factory',
                 y='sim_avg_dist_miles',
                 color='candidate_factory',
                 color_discrete_map={k: v['color'] for k, v in FACTORIES.items()},
-                title="Average Shipping Haulage Distance (Miles)",
-                labels={'candidate_factory': 'Factory', 'sim_avg_dist_miles': 'Avg Distance (mi)'}
+                labels={'candidate_factory': 'Factory', 'sim_avg_dist_miles': 'Haulage Distance (Miles)'}
             )
-            # Add horizontal line for current distance
             curr_dist = sim_product_df[sim_product_df['is_current']]['sim_avg_dist_miles'].values[0]
-            fig_bar.add_hline(y=curr_dist, line_dash="dash", line_color="red", annotation_text="Baseline Distance")
-            fig_bar.update_layout(showlegend=False, margin=dict(l=20, r=20, t=40, b=20), height=320)
+            fig_bar.add_hline(
+                y=curr_dist, 
+                line_dash="dash", 
+                line_color="#DC2626", 
+                line_width=2,
+                annotation_text="Current Baseline",
+                annotation_position="top right"
+            )
+            style_figure(fig_bar, height=330)
+            fig_bar.update_layout(showlegend=False)
             st.plotly_chart(fig_bar, use_container_width=True)
 
-        # Operational Efficiency vs Freight Savings scatter
-        st.markdown("#### Trade-off Analysis: Distance Reduction vs. Freight Savings")
+        st.markdown("#### Operational Trade-Off: Distance Reduction vs. Freight Savings")
         fig_scatter = px.scatter(
             sim_product_df,
             x='dist_reduction_pct',
@@ -279,44 +525,42 @@ with tab1:
             size='total_orders',
             color='candidate_factory',
             text='candidate_factory',
-            title="Operational Gain vs Financial Benefit",
             labels={'dist_reduction_pct': 'Distance Reduction (%)', 'freight_savings': 'Annual Freight Savings ($)'},
             color_discrete_map={k: v['color'] for k, v in FACTORIES.items()}
         )
-        fig_scatter.update_traces(textposition='top center', marker=dict(sizemin=12))
-        fig_scatter.update_layout(height=350, margin=dict(l=20, r=20, t=40, b=20))
+        fig_scatter.update_traces(textposition='top center', marker=dict(sizemin=14))
+        style_figure(fig_scatter, height=360)
         st.plotly_chart(fig_scatter, use_container_width=True)
 
 # ==============================================================================
-# TAB 2: WHAT-IF SCENARIO ANALYSIS
+# TAB 2: WHAT-IF SCENARIO SANDBOX
 # ==============================================================================
 with tab2:
-    st.subheader("What-If Scenario Analysis: Reassignment Sandbox")
-    st.markdown("Test hypothetical assignment configurations and inspect before vs. after operational impacts.")
+    st.markdown("### What-If Scenario Analysis: Reassignment Sandbox")
+    st.markdown("Test hypothetical factory reallocations and immediately measure operational and financial deltas.")
 
     w1, w2 = st.columns(2)
     with w1:
-        test_product = st.selectbox("Select Product to Reassign", all_products, key="whatif_prod")
+        test_product = st.selectbox("Product to Reallocate", all_products, key="whatif_prod")
         test_curr_factory = PRODUCT_FACTORY_MAP[test_product]
-        st.markdown(f"**Current Origin Factory:** `{test_curr_factory}`")
+        st.markdown(f"**Current Origin:** `{test_curr_factory}`")
 
     with w2:
         candidate_options = [f for f in FACTORIES.keys() if f != test_curr_factory]
-        test_target_factory = st.selectbox("Select New Target Factory", candidate_options, key="whatif_target")
-        st.markdown(f"**Proposed New Origin:** `{test_target_factory}`")
+        test_target_factory = st.selectbox("Proposed New Origin", candidate_options, key="whatif_target")
+        st.markdown(f"**Proposed Origin:** `{test_target_factory}`")
 
-    # Run simulation on this hypothetical pairing
     prod_data = df_raw[df_raw['Product Name'] == test_product]
     base_res = simulate_product_reassignment(prod_data, test_product, test_curr_factory, model=model)
     prop_res = simulate_product_reassignment(prod_data, test_product, test_target_factory, model=model)
 
     st.write("")
-    st.markdown("### Side-by-Side Configuration Comparison")
+    st.markdown("#### Side-by-Side Impact Assessment")
     sc1, sc2, sc3, sc4 = st.columns(4)
 
     with sc1:
         st.metric(
-            label="Avg Distance",
+            label="Avg Distance (mi)",
             value=f"{prop_res['sim_avg_dist_miles']:.1f} mi",
             delta=f"{-prop_res['dist_reduction_pct']:.1f}%",
             delta_color="inverse"
@@ -334,23 +578,22 @@ with tab2:
 
     with sc3:
         st.metric(
-            label="Freight Cost Savings",
+            label="Annual Freight Savings",
             value=f"${prop_res['freight_savings']:,.2f}",
-            delta=f"{prop_res['profit_impact_pct']:+.2f}% Profit",
+            delta=f"{prop_res['profit_impact_pct']:+.2f}% Profit Margin",
             delta_color="normal"
         )
-        st.caption(f"Total Orders: {base_res['total_orders']}")
+        st.caption(f"Orders: {base_res['total_orders']}")
 
     with sc4:
         st.metric(
-            label="CO2 Avoided",
-            value=f"{prop_res['co2_saved_kg']:.1f} kg",
+            label="Carbon Abated",
+            value=f"{prop_res['co2_saved_kg']:.1f} kg CO2",
             delta="Scope 3 ESG"
         )
-        st.caption(f"Risk Rating: {prop_res['risk_level']}")
+        st.caption(f"Risk Profile: {prop_res['risk_level']}")
 
-    # Visualizing Regional Lead-Time and Distance Improvements
-    st.markdown("#### Regional Impact Breakdown")
+    st.markdown("#### Regional Distribution Comparison")
     reg_breakdown = []
     for reg in sorted(df_raw['Region'].unique()):
         reg_df = prod_data[prod_data['Region'] == reg]
@@ -376,20 +619,16 @@ with tab2:
             name='Current Baseline',
             x=reg_breakdown_df['Region'],
             y=reg_breakdown_df['Baseline Distance (mi)'],
-            marker_color='#A0AEC0'
+            marker_color='#94A3B8'
         ))
         fig_reg.add_trace(go.Bar(
             name=f'Proposed ({test_target_factory})',
             x=reg_breakdown_df['Region'],
             y=reg_breakdown_df['Proposed Distance (mi)'],
-            marker_color='#3182CE'
+            marker_color='#3B82F6'
         ))
-        fig_reg.update_layout(
-            title="Shipping Distance by Destination Region (Miles)",
-            barmode='group',
-            height=340,
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
+        fig_reg.update_layout(barmode='group', title="Shipping Distance by Destination Region (Miles)")
+        style_figure(fig_reg, height=340)
         st.plotly_chart(fig_reg, use_container_width=True)
 
     with col_tbl:
@@ -399,10 +638,9 @@ with tab2:
 # TAB 3: RECOMMENDATION DASHBOARD
 # ==============================================================================
 with tab3:
-    st.subheader("Executive Reassignment Recommendations")
-    st.markdown(f"Optimal allocation recommendations across all 15 SKUs based on current weights (**Speed: {int(speed_weight*100)}% | Profit: {int(profit_weight*100)}%**).")
+    st.markdown("### Executive Reassignment Recommendations")
+    st.markdown(f"Optimal allocation strategy across all 15 SKUs under current weights (**Speed: {int(speed_weight*100)}% &nbsp;|&nbsp; Profit: {int(profit_weight*100)}%**).")
 
-    # Table of recommendations
     disp_recs = recs_df[[
         'product_name', 'current_factory', 'recommended_factory', 'recommendation_action',
         'dist_reduction_pct', 'lead_time_reduction_pct', 'freight_savings', 'profit_impact_pct',
@@ -411,21 +649,15 @@ with tab3:
 
     disp_recs.columns = [
         'Product Name', 'Current Factory', 'Recommended Factory', 'Action',
-        'Dist Reduction (%)', 'Lead Time Red (%)', 'Freight Savings ($)',
+        'Dist Red. (%)', 'Lead Time Red. (%)', 'Freight Savings ($)',
         'Profit Delta (%)', 'Confidence', 'Risk Rating'
     ]
 
-    # Color highlighting
-    def highlight_action(val):
-        color = '#D4EDDA' if val == 'Reassign' else '#FFF3CD'
-        return f'background-color: {color}; font-weight: bold;'
-
     st.dataframe(disp_recs, use_container_width=True, hide_index=True)
 
-    # Download CSV button
     csv_bytes = disp_recs.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Export Recommendations as CSV",
+        label="📥 Export Full Portfolio Recommendations as CSV",
         data=csv_bytes,
         file_name="nassau_candy_reallocation_recommendations.csv",
         mime="text/csv"
@@ -434,26 +666,23 @@ with tab3:
     st.markdown("---")
     r1, r2 = st.columns(2)
     with r1:
-        st.markdown("#### Cumulative Freight Savings by Product")
+        st.markdown("#### Cumulative Freight Savings by Product ($)")
         fig_sav = px.bar(
             recs_df.sort_values(by='freight_savings', ascending=True),
             x='freight_savings',
             y='product_name',
             orientation='h',
             color='recommendation_action',
-            color_discrete_map={'Reassign': '#28A745', 'Retain Baseline': '#6C757D'},
-            title="Freight Savings by Recommended Action ($)",
+            color_discrete_map={'Reassign': '#10B981', 'Retain Baseline': '#94A3B8'},
             labels={'freight_savings': 'Freight Savings ($)', 'product_name': 'Product'}
         )
-        fig_sav.update_layout(height=420, margin=dict(l=20, r=20, t=40, b=20))
+        style_figure(fig_sav, height=420)
         st.plotly_chart(fig_sav, use_container_width=True)
 
     with r2:
-        st.markdown("#### Factory Production Volume Shift")
-        # Current vs Proposed order counts per factory
+        st.markdown("#### Production Volume Shift Across Facilities")
         curr_vol = df_raw.groupby('Factory')['Row ID'].count().reset_index().rename(columns={'Row ID': 'Current Orders'})
         
-        # Calculate new order volumes under recommendation
         new_vol_dict = {f: 0 for f in FACTORIES.keys()}
         for _, r in recs_df.iterrows():
             target_fac = r['recommended_factory']
@@ -466,81 +695,68 @@ with tab3:
         ])
 
         fig_vol = go.Figure()
-        fig_vol.add_trace(go.Bar(name='Current Orders', x=vol_comparison['Factory'], y=vol_comparison['Current Orders'], marker_color='#E2E8F0'))
-        fig_vol.add_trace(go.Bar(name='Optimized Orders', x=vol_comparison['Factory'], y=vol_comparison['Optimized Orders'], marker_color='#3182CE'))
-        fig_vol.update_layout(
-            title="Order Volume Allocation Before vs. After Optimization",
-            barmode='group',
-            height=420,
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
+        fig_vol.add_trace(go.Bar(name='Current Orders', x=vol_comparison['Factory'], y=vol_comparison['Current Orders'], marker_color='#CBD5E1'))
+        fig_vol.add_trace(go.Bar(name='Optimized Orders', x=vol_comparison['Factory'], y=vol_comparison['Optimized Orders'], marker_color='#3B82F6'))
+        fig_vol.update_layout(barmode='group', title="Order Volume Allocation (Before vs. After)")
+        style_figure(fig_vol, height=420)
         st.plotly_chart(fig_vol, use_container_width=True)
 
 # ==============================================================================
 # TAB 4: RISK & IMPACT PANEL
 # ==============================================================================
 with tab4:
-    st.subheader("Operational Risk & Financial Sensitivity Panel")
-    st.markdown("Comprehensive evaluation of operational feasibility, capacity thresholds, and profit sensitivities.")
-
-    # High Risk Alerts
-    high_risk_candidates = sim_df[sim_df['risk_level'] == 'High Risk']
-    moderate_risk_candidates = sim_df[sim_df['risk_level'] == 'Moderate Risk']
+    st.markdown("### Operational Risk & Feasibility Assessment")
+    st.markdown("Evaluation of factory capacity constraints, regional hazard flags, and dual-sourcing directives.")
 
     col_rk1, col_rk2 = st.columns(2)
     with col_rk1:
         st.markdown("#### 🚨 Reassignment Hazard Flags")
         st.warning("""
-        **Cross-Country Reallocation Warning:**
-        Assigning Pacific-dominant SKUs (e.g., Chocolate Bars) to Atlantic factories without regional segmentation increases shipping distance by over 1,800 miles, eroding up to 18% of gross margin.
+        **Transcontinental Haulage Hazard:**
+        Reallocating Pacific-dominant SKUs (e.g. Chocolate Bars) to Atlantic facilities without regional splitting increases haulage by 1,800+ miles, eroding gross margins by up to 18%.
         """)
         st.error("""
         **Capacity Concentration Risk:**
-        Reallocating high-volume Wonka Bars to Secret Factory or The Other Factory will increase their production loads by over 300%. Capital expenditure or line expansion will be required to handle peak holiday order runs.
+        Concentrating Wonka Bar production at Secret Factory or The Other Factory elevates facility load by over 300%. Capital expenditure or extra shift staffing is required for peak Q4 holiday volumes.
         """)
 
     with col_rk2:
-        st.markdown("#### 🛡️ Risk Mitigation Directives")
+        st.markdown("#### 🛡️ Executive Mitigation Directives")
         st.success("""
         **Dual-Sourcing Recommendation:**
-        Rather than shifting 100% of Wonka Bar production to a single facility, implement dual-regional manufacturing:
+        Rather than a binary 100% transfer, adopt split manufacturing:
         - Western volume at **Lot's O' Nuts (AZ)**
-        - Eastern/Central volume at **The Other Factory (TN)** or **Wicked Choccy's (GA)**.
+        - Eastern & Central volume at **The Other Factory (TN)** or **Wicked Choccy's (GA)**.
         """)
         st.info("""
-        **Seasonal Demand Buffer:**
-        Ensure Minnesota facility (**Sugar Shack**) maintains safety stock buffers during winter quarters (Q4/Q1) where northern weather creates transit delays.
+        **Northern Winter Buffer:**
+        Ensure **Sugar Shack (MN)** maintains a 14-day safety inventory buffer during winter quarters (Q4/Q1) where blizzards disrupt Midwest interstate logistics.
         """)
 
-    st.markdown("---")
-    st.markdown("#### Scenario Risk Distribution Across All 75 Evaluated Configurations")
-    
+    st.markdown("#### Scenario Risk Profile Distribution (All 75 Configurations)")
     fig_risk = px.histogram(
         sim_df,
         x='dist_reduction_pct',
         color='risk_level',
         nbins=25,
-        title="Distribution of Operational Gains vs Risk Profiles",
         labels={'dist_reduction_pct': 'Distance Reduction (%)', 'risk_level': 'Risk Rating'},
         color_discrete_map={
-            'Low Risk (High Value)': '#28A745',
-            'Neutral': '#17A2B8',
-            'Moderate Risk': '#FFC107',
-            'High Risk': '#DC3545'
+            'Low Risk (High Value)': '#10B981',
+            'Neutral': '#06B6D4',
+            'Moderate Risk': '#F59E0B',
+            'High Risk': '#EF4444'
         }
     )
-    fig_risk.update_layout(height=360, margin=dict(l=20, r=20, t=40, b=20))
+    style_figure(fig_risk, height=360)
     st.plotly_chart(fig_risk, use_container_width=True)
 
 # ==============================================================================
 # TAB 5: NETWORK & ROUTE CLUSTERING
 # ==============================================================================
 with tab5:
-    st.subheader("Logistics Network Topology & Route Clustering")
-    st.markdown("Identify consistently congested routes, transcontinental bottlenecks, and regional performance clusters.")
+    st.markdown("### Logistics Network Topology & Route Clustering")
+    st.markdown("Identify consistently congested logistics corridors, transcontinental bottlenecks, and operational clusters.")
 
-    # Geographic Map of Factories & Regions
-    st.markdown("#### Geographic Factory Network Coordinates")
     factory_geo = pd.DataFrame([
         {
             'Factory': name,
@@ -561,21 +777,24 @@ with tab5:
         text='Factory',
         hover_name='Factory',
         hover_data=['City', 'State', 'Specialty'],
-        title="Nassau Candy Manufacturing Facilities",
+        title="Nassau Candy Manufacturing Network (United States)",
         scope='usa'
     )
     fig_map.update_traces(
-        marker=dict(size=16, color=['#E67E22', '#8E44AD', '#27AE60', '#2980B9', '#D35400'], symbol='diamond'),
+        marker=dict(size=18, color=['#E67E22', '#8E44AD', '#27AE60', '#2980B9', '#D35400'], symbol='diamond'),
         textposition='top right'
     )
-    fig_map.update_layout(height=420, margin=dict(l=0, r=0, t=40, b=0))
+    fig_map.update_layout(
+        geo=dict(bgcolor="rgba(0,0,0,0)", landcolor="#F8FAFC", lakecolor="#E0F2FE", showland=True, showlakes=True),
+        height=430, 
+        margin=dict(l=0, r=0, t=40, b=0)
+    )
     st.plotly_chart(fig_map, use_container_width=True)
 
-    # Route Clusters
     st.markdown("#### Route Clustering Profiles (K-Means)")
     st.dataframe(cluster_res['cluster_summary'], use_container_width=True, hide_index=True)
 
-    st.markdown("#### Consistently Congested / Bottleneck Corridors (Top 10)")
+    st.markdown("#### Top 10 High-Congestion & Bottleneck Corridors")
     congested_display = cluster_res['top_congested_routes'][[
         'Product Name', 'Factory', 'Region', 'avg_distance', 'avg_transit', 'total_orders', 'avg_profit', 'cluster_label'
     ]].rename(columns={
@@ -591,17 +810,11 @@ with tab5:
 # TAB 6: PREDICTIVE MODEL EVALUATION
 # ==============================================================================
 with tab6:
-    st.subheader("Predictive Modeling Objective & Benchmark Evaluation")
+    st.markdown("### Predictive Machine Learning Benchmarks")
     st.markdown("""
-    **Objective:** Predict expected shipping lead time given:
-    - Product
-    - Origin factory
-    - Destination region
-    - Ship mode
-    - Shipping distance & Order units
+    **Objective:** Predict shipping transit lead times using gradient boosted decision trees and regression baselines based on Haversine distance, product category, destination region, and shipping mode.
     """)
 
-    # Model Evaluation Metrics Table
     model_eval_rows = []
     for m_name, m_data in metrics_report.items():
         model_eval_rows.append({
@@ -609,13 +822,12 @@ with tab6:
             'RMSE (Root Mean Squared Error)': f"{m_data['RMSE']:.4f}",
             'MAE (Mean Absolute Error)': f"{m_data['MAE']:.4f}",
             'R² Score (Variance Explained)': f"{m_data['R2']:.4f}",
-            'Selection Status': "⭐ Best Model Selected" if m_name == best_model_name else "Benchmark Baseline"
+            'Selection Status': "⭐ Champion Model (Production)" if m_name == best_model_name else "Baseline Benchmark"
         })
 
     model_eval_df = pd.DataFrame(model_eval_rows)
     st.dataframe(model_eval_df, use_container_width=True, hide_index=True)
 
-    st.markdown("#### Model Comparison: Prediction Accuracy")
     m_col1, m_col2 = st.columns(2)
     with m_col1:
         fig_r2 = px.bar(
@@ -623,10 +835,11 @@ with tab6:
             x='Model',
             y='R2',
             color='Model',
-            title="R² Score Comparison (Higher is Better)",
+            title="R² Score (Higher is Better)",
             labels={'R2': 'Variance Explained (R²)'}
         )
-        fig_r2.update_layout(showlegend=False, height=320, margin=dict(l=20, r=20, t=40, b=20))
+        style_figure(fig_r2, height=320)
+        fig_r2.update_layout(showlegend=False)
         st.plotly_chart(fig_r2, use_container_width=True)
 
     with m_col2:
@@ -635,17 +848,18 @@ with tab6:
             x='Model',
             y='RMSE',
             color='Model',
-            title="RMSE Comparison (Lower is Better - Penalizes Large Errors)",
+            title="RMSE in Days (Lower is Better)",
             labels={'RMSE': 'Error (Days)'}
         )
-        fig_rmse.update_layout(showlegend=False, height=320, margin=dict(l=20, r=20, t=40, b=20))
+        style_figure(fig_rmse, height=320)
+        fig_rmse.update_layout(showlegend=False)
         st.plotly_chart(fig_rmse, use_container_width=True)
 
     st.info(f"""
-    **Selection Justification:**
-    **{best_model_name}** was selected for production deployment because it achieves the highest predictive accuracy (R² = {metrics_report[best_model_name]['R2']:.4f}) and lowest error (RMSE = {metrics_report[best_model_name]['RMSE']:.4f} days), while maintaining robust generalization without overfitting.
+    **Production Architecture Justification:**
+    **{best_model_name}** was selected for production inference because it achieves the highest predictive accuracy (R² = {metrics_report[best_model_name]['R2']:.4f}) and lowest error (RMSE = {metrics_report[best_model_name]['RMSE']:.4f} days), while generalizing robustly across non-linear route interactions without overfitting.
     """)
 
 # Footer
 st.markdown("---")
-st.caption("© Nassau Candy Distributor Intelligent Decision Intelligence System | Developed with Streamlit, Scikit-Learn & Plotly")
+st.caption("© 2026 Nassau Candy Distributor Intelligent Logistics System | Powered by Streamlit, Scikit-Learn & Plotly")

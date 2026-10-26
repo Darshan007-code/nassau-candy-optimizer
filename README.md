@@ -132,6 +132,8 @@ python -m unittest discover tests
 ### 3. Launch Streamlit Web Application
 ```bash
 streamlit run app.py
+# Or:
+python -m streamlit run app.py
 ```
 Open your browser to `http://localhost:8501`.
 

@@ -85,22 +85,36 @@ def train_and_evaluate_all():
     return metrics_report, best_name
 
 def load_best_model():
-    """Load pre-trained best pipeline from disk."""
+    """Load pre-trained best pipeline from disk, or dynamically train if deserialization fails."""
     best_name_file = os.path.join(MODELS_DIR, "best_model_name.joblib")
-    if not os.path.exists(best_name_file):
-        train_and_evaluate_all()
-    best_name = joblib.load(best_name_file)
-    clean_key = best_name.lower().replace(" ", "_")
-    model_path = os.path.join(MODELS_DIR, f"{clean_key}.joblib")
-    return joblib.load(model_path), best_name
+    if os.path.exists(best_name_file):
+        try:
+            best_name = joblib.load(best_name_file)
+            clean_key = best_name.lower().replace(" ", "_")
+            model_path = os.path.join(MODELS_DIR, f"{clean_key}.joblib")
+            if os.path.exists(model_path):
+                return joblib.load(model_path), best_name
+        except Exception as e:
+            print(f"Warning: Failed to load serialized model ({e}). Retraining in local environment...")
+
+    # Automatic fallback: train models fresh in current environment
+    metrics_report, best_name = train_and_evaluate_all()
+    return metrics_report[best_name]['pipeline'], best_name
 
 def load_metrics_report():
-    """Load evaluation metrics dictionary."""
+    """Load evaluation metrics dictionary, or dynamically compute if deserialization fails."""
     metrics_file = os.path.join(MODELS_DIR, "metrics_report.joblib")
-    if not os.path.exists(metrics_file):
-        metrics_report, _ = train_and_evaluate_all()
-        return metrics_report
-    return joblib.load(metrics_file)
+    if os.path.exists(metrics_file):
+        try:
+            return joblib.load(metrics_file)
+        except Exception:
+            pass
+
+    metrics_report, _ = train_and_evaluate_all()
+    return {
+        k: {'RMSE': v['RMSE'], 'MAE': v['MAE'], 'R2': v['R2']}
+        for k, v in metrics_report.items()
+    }
 
 if __name__ == "__main__":
     train_and_evaluate_all()

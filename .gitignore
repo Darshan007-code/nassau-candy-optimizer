@@ -57,3 +57,6 @@ desktop.ini
 # Scratch / Temp files
 *.tmp
 test_comp.joblib
+
+# Trained models (dynamically trained on target environment to avoid cross-version unpickling issues)
+models/*.joblib

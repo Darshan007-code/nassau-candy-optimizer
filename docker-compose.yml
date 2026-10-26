@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    container_name: nassau-candy-optimizer
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+    environment:
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_PORT=8501

@@ -1,0 +1,8 @@
+# Nassau Candy Logistics Optimizer - Production Dependencies
+pandas>=2.2.0
+numpy>=2.0.0
+scikit-learn>=1.6.0
+scipy>=1.14.0
+joblib>=1.4.0
+plotly>=6.0.0
+streamlit>=1.40.0
